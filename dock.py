@@ -20,16 +20,32 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 
-from loguru import logger
-from tqdm import tqdm
+from src.logger_config import logger, setup_logging
+
+# Optional tqdm import
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback to simple iteration if tqdm not available
+    def tqdm(iterable, **kwargs):
+        return iterable
 
 # Import pipeline modules
 try:
-    from src.preprocessing import PreprocessingEngine
     from src.docking import DockingEngine
     from src.output_parser import OutputParser
     from src.visualization import VisualizationEngine
-    from src.utils import setup_logging, validate_inputs, create_output_structure
+    from src.utils import validate_inputs, create_output_structure, load_config
+    
+    # Optional preprocessing import (requires BioPython)
+    try:
+        from src.preprocessing import PreprocessingEngine
+        PREPROCESSING_AVAILABLE = True
+    except ImportError:
+        logger.warning("⚠️ Preprocessing engine not available (BioPython dependency missing)")
+        PreprocessingEngine = None
+        PREPROCESSING_AVAILABLE = False
+        
 except ImportError as e:
     print(f"❌ Import error: {e}")
     print("Please ensure you're running from the project root and all dependencies are installed.")
@@ -351,11 +367,18 @@ def main():
         output_paths = create_output_structure(args.output_dir, overwrite=args.overwrite)
         
         # Initialize engines
-        professional_mode = args.professional_cleaning and not args.standard_mode
-        preprocessor = PreprocessingEngine(
-            professional_mode=professional_mode,
-            ph=args.ph
-        )
+        professional_mode = args.professional_cleaning and not args.standard_mode and PREPROCESSING_AVAILABLE
+        
+        if PREPROCESSING_AVAILABLE and not args.skip_preprocessing:
+            preprocessor = PreprocessingEngine(
+                professional_mode=professional_mode,
+                ph=args.ph
+            )
+        else:
+            preprocessor = None
+            if not args.skip_preprocessing:
+                logger.warning("⚠️ Preprocessing skipped due to missing BioPython dependency")
+                args.skip_preprocessing = True
         docker = DockingEngine()
         parser_engine = OutputParser()
         # Load configuration
@@ -381,7 +404,7 @@ def main():
             logger.info(f"  • Random seed: {args.seed}")
         
         # Step 1: Preprocessing
-        if not args.skip_preprocessing:
+        if not args.skip_preprocessing and preprocessor:
             logger.info("Step 1: Preprocessing input files...")
             with tqdm(total=4, desc="Preprocessing") as pbar:
                 # Convert and prepare ligand
@@ -434,7 +457,7 @@ def main():
         logger.info("Step 2: Running AutoDock Vina...")
         
         # Get optimized parameters if auto-optimization is enabled
-        if args.auto_optimize_params and professional_mode:
+        if args.auto_optimize_params and professional_mode and preprocessor:
             logger.info("Optimizing docking parameters based on molecular analysis...")
             optimized_params = preprocessor.get_optimized_docking_parameters()
             
@@ -468,7 +491,10 @@ def main():
         
         # Log results summary
         logger.success(f"✅ Docking completed successfully!")
-        logger.info(f"Best binding affinity: {parsed_results['best_affinity']:.2f} kcal/mol")
+        if parsed_results['best_affinity'] is not None:
+            logger.info(f"Best binding affinity: {parsed_results['best_affinity']:.2f} kcal/mol")
+        else:
+            logger.info("Best binding affinity: N/A (no affinity data found)")
         logger.info(f"Number of poses: {len(parsed_results['poses'])}")
         
         # Step 4: Enhanced Analysis
@@ -477,7 +503,7 @@ def main():
             logger.info("Step 4: Performing comprehensive analysis...")
             
             # Professional cleaning summary
-            if professional_mode:
+            if professional_mode and preprocessor:
                 logger.info("Professional cleaning summary:")
                 cleaning_summary = preprocessor.get_cleaning_summary()
                 
@@ -566,7 +592,10 @@ def main():
         # Print summary
         print("\nDOCKING RESULTS SUMMARY")
         print("=" * 30)
-        print(f"Best binding affinity: {parsed_results['best_affinity']:.2f} kcal/mol")
+        if parsed_results['best_affinity'] is not None:
+            print(f"Best binding affinity: {parsed_results['best_affinity']:.2f} kcal/mol")
+        else:
+            print("Best binding affinity: N/A (no affinity data found)")
         print(f"Number of poses: {len(parsed_results['poses'])}")
         print(f"\nGenerated files:")
         for key, path in output_paths.items():
@@ -602,13 +631,20 @@ def generate_summary_report(args, results, box_params, output_dir):
         f.write(f"  Size: ({box_params['size_x']:.2f}, {box_params['size_y']:.2f}, {box_params['size_z']:.2f})\n\n")
         
         f.write("Results:\n")
-        f.write(f"  Best binding affinity: {results['best_affinity']:.2f} kcal/mol\n")
+        if results['best_affinity'] is not None:
+            f.write(f"  Best binding affinity: {results['best_affinity']:.2f} kcal/mol\n")
+        else:
+            f.write("  Best binding affinity: N/A (no affinity data found)\n")
         f.write(f"  Number of poses: {len(results['poses'])}\n\n")
         
         if results['poses']:
             f.write("Top binding poses:\n")
             for i, pose in enumerate(results['poses'][:5], 1):
-                f.write(f"  {i}. {pose['affinity']:.2f} kcal/mol\n")
+                affinity = pose.get('affinity', 'N/A')
+                if affinity != 'N/A' and affinity is not None:
+                    f.write(f"  {i}. {affinity:.2f} kcal/mol\n")
+                else:
+                    f.write(f"  {i}. N/A kcal/mol\n")
     
     logger.info(f"Summary report saved: {report_file}")
     return report_file
@@ -624,9 +660,10 @@ def export_to_csv(results, output_dir):
         writer.writerow(['Pose', 'Binding Affinity (kcal/mol)', 'RMSD Lower', 'RMSD Upper'])
         
         for i, pose in enumerate(results['poses'], 1):
+            affinity = pose.get('affinity', 'N/A')
             writer.writerow([
                 i, 
-                pose['affinity'], 
+                affinity, 
                 pose.get('rmsd_lb', 'N/A'),
                 pose.get('rmsd_ub', 'N/A')
             ])
@@ -641,7 +678,7 @@ def export_to_json(results, output_dir):
     
     export_data = {
         'timestamp': datetime.now().isoformat(),
-        'best_affinity': results['best_affinity'],
+        'best_affinity': results['best_affinity'] if results['best_affinity'] is not None else "N/A",
         'num_poses': len(results['poses']),
         'poses': results['poses']
     }
@@ -660,13 +697,15 @@ def export_to_xml(results, output_dir):
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
         f.write('<docking_results>\n')
         f.write(f'  <timestamp>{datetime.now().isoformat()}</timestamp>\n')
-        f.write(f'  <best_affinity>{results["best_affinity"]}</best_affinity>\n')
+        best_aff = results["best_affinity"] if results["best_affinity"] is not None else "N/A"
+        f.write(f'  <best_affinity>{best_aff}</best_affinity>\n')
         f.write(f'  <num_poses>{len(results["poses"])}</num_poses>\n')
         f.write('  <poses>\n')
         
         for i, pose in enumerate(results['poses'], 1):
+            affinity = pose.get('affinity', 'N/A')
             f.write(f'    <pose id="{i}">\n')
-            f.write(f'      <affinity>{pose["affinity"]}</affinity>\n')
+            f.write(f'      <affinity>{affinity}</affinity>\n')
             f.write(f'      <rmsd_lb>{pose.get("rmsd_lb", "N/A")}</rmsd_lb>\n')
             f.write(f'      <rmsd_ub>{pose.get("rmsd_ub", "N/A")}</rmsd_ub>\n')
             f.write('    </pose>\n')

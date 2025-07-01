@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import numpy as np
-from loguru import logger
+from .logger_config import logger
 
 try:
     from scipy.spatial.distance import cdist
@@ -53,11 +53,19 @@ class OutputParser:
         logger.info("📊 Parsing AutoDock Vina results...")
         
         try:
-            # Parse binding affinities from log file
-            affinities = self._parse_binding_affinities(log_file)
+            # Parse binding affinities from PDBQT file (modern Vina versions)
+            affinities = self._parse_binding_affinities(output_pdbqt)
             
             # Extract individual poses from PDBQT
             poses = self._extract_poses_from_pdbqt(output_pdbqt, output_dir)
+            
+            # Add affinity data to poses if available
+            if affinities and len(affinities) == len(poses):
+                for i, pose in enumerate(poses):
+                    if i < len(affinities):
+                        pose['affinity'] = affinities[i]['affinity']
+                        pose['rmsd_lb'] = affinities[i]['rmsd_lb']
+                        pose['rmsd_ub'] = affinities[i]['rmsd_ub']
             
             # Convert best pose to different formats
             best_pose_files = self._convert_best_pose(poses[0] if poses else None, output_dir)
@@ -82,14 +90,18 @@ class OutputParser:
             # Save detailed JSON results
             self._save_results_json(results, output_dir)
             
+            # Success message with safe formatting
+            if results['best_affinity'] is not None:
             logger.success(f"✅ Parsed {len(poses)} poses with best affinity: {results['best_affinity']:.2f} kcal/mol")
+            else:
+                logger.success(f"✅ Parsed {len(poses)} poses (no affinity data found)")
             
             return results
             
         except Exception as e:
             logger.error(f"❌ Failed to parse results: {e}")
             raise
-
+    
     def analyze_binding_interactions(self, detailed_results: Dict, protein_file: str = None, ligand_file: str = None) -> Dict:
         """
         Analyze protein-ligand binding interactions in detail.
@@ -224,94 +236,143 @@ class OutputParser:
             'geometric_properties': {}
         }
         
-        if not SCIPY_AVAILABLE:
-            logger.warning("⚠️ SciPy not available, limited interaction analysis")
-            return analysis
-            
         try:
-            # Extract coordinates
+            # Extract coordinates and residue information
             protein_coords, protein_residues = self._extract_protein_residues(protein_file)
             ligand_coords = self._extract_coordinates_simple(ligand_file)
             
             if not protein_coords or not ligand_coords:
                 logger.warning("⚠️ Could not extract coordinates for interaction analysis")
-                return analysis
+                # Try alternative extraction method
+                protein_coords = self._extract_coordinates_simple(protein_file)
+                if not protein_coords or not ligand_coords:
+                    return analysis
+                # Create dummy residue information
+                protein_residues = [{'name': 'UNK', 'number': i+1, 'chain': 'A'} for i in range(len(protein_coords))]
             
-            # Calculate distance matrix
-            distances = cdist(ligand_coords, protein_coords)
+            if not SCIPY_AVAILABLE:
+                logger.warning("⚠️ SciPy not available, using simplified distance calculation")
+                # Simple distance calculation without scipy
+                binding_site_residues = self._find_binding_site_residues_simple(
+                    protein_coords, ligand_coords, protein_residues
+                )
+                analysis['binding_site_residues'] = binding_site_residues
+            else:
+                # Calculate distance matrix using scipy
+                distances = cdist(ligand_coords, protein_coords)
+                
+                # Find close contacts (within 5 Å)
+                close_contacts = np.where(distances < 5.0)
+                
+                # Analyze binding site residues
+                unique_residue_indices = np.unique(close_contacts[1])
+                binding_site_residues = []
+                
+                for res_idx in unique_residue_indices:
+                    if res_idx < len(protein_residues):
+                        residue = protein_residues[res_idx]
+                        min_distance = np.min(distances[:, res_idx])
+                        
+                        binding_site_residues.append({
+                            'residue_name': residue.get('name', 'UNK'),
+                            'residue_number': residue.get('number', res_idx + 1),
+                            'chain': residue.get('chain', 'A'),
+                            'min_distance': float(min_distance),
+                            'interaction_type': self._classify_interaction(residue.get('name', 'UNK'), min_distance)
+                        })
+                
+                analysis['binding_site_residues'] = binding_site_residues
+                
+                # Calculate geometric properties
+                if len(ligand_coords) > 0:
+                    ligand_center = np.mean(ligand_coords, axis=0)
+                    analysis['geometric_properties'] = {
+                        'ligand_center': ligand_center.tolist(),
+                        'binding_site_volume': self._calculate_binding_site_volume(protein_coords, ligand_coords),
+                        'buried_surface_area': self._estimate_buried_surface_area(protein_coords, ligand_coords),
+                        'num_binding_site_residues': len(binding_site_residues)
+                    }
             
-            # Find close contacts
-            close_contacts = np.where(distances < self.interaction_cutoffs['hydrophobic'])
-            
-            # Analyze binding site residues
-            unique_residue_indices = np.unique(close_contacts[1])
-            binding_site_residues = []
-            
-            for idx in unique_residue_indices:
-                if idx < len(protein_residues):
-                    residue_info = protein_residues[idx]
-                    min_distance = np.min(distances[:, idx])
-                    
-                    binding_site_residues.append({
-                        'residue': residue_info['name'],
-                        'chain': residue_info['chain'],
-                        'number': residue_info['number'],
-                        'min_distance': float(min_distance),
-                        'interaction_type': self._classify_interaction(
-                            residue_info['name'], min_distance
-                        )
-                    })
-            
-            analysis['binding_site_residues'] = binding_site_residues
-            
-            # Calculate geometric properties
-            analysis['geometric_properties'] = {
-                'binding_site_volume': self._calculate_binding_site_volume(
-                    protein_coords, ligand_coords
-                ),
-                'buried_surface_area': self._estimate_buried_surface_area(
-                    protein_coords, ligand_coords
-                ),
-                'ligand_protein_contacts': len(close_contacts[0])
-            }
+            logger.info(f"🔍 Found {len(analysis['binding_site_residues'])} binding site residues")
+            return analysis
             
         except Exception as e:
-            logger.warning(f"⚠️ Enhanced interaction analysis failed: {e}")
+            logger.error(f"❌ Failed to analyze interactions: {e}")
+            return analysis
+
+    def _find_binding_site_residues_simple(self, protein_coords, ligand_coords, protein_residues):
+        """Simple binding site residue finding without scipy."""
+        binding_site_residues = []
+        
+        try:
+            cutoff = 5.0  # 5 Angstrom cutoff
             
-        return analysis
+            for i, protein_coord in enumerate(protein_coords):
+                min_distance = float('inf')
+                
+                # Calculate minimum distance to any ligand atom
+                for ligand_coord in ligand_coords:
+                    distance = ((protein_coord[0] - ligand_coord[0])**2 + 
+                              (protein_coord[1] - ligand_coord[1])**2 + 
+                              (protein_coord[2] - ligand_coord[2])**2)**0.5
+                    min_distance = min(min_distance, distance)
+                
+                # If within cutoff, add to binding site
+                if min_distance <= cutoff:
+                    residue = protein_residues[i] if i < len(protein_residues) else {'name': 'UNK', 'number': i+1, 'chain': 'A'}
+                    binding_site_residues.append({
+                        'residue_name': residue.get('name', 'UNK'),
+                        'residue_number': residue.get('number', i + 1),
+                        'chain': residue.get('chain', 'A'),
+                        'min_distance': min_distance,
+                        'interaction_type': self._classify_interaction(residue.get('name', 'UNK'), min_distance)
+                    })
+            
+            return binding_site_residues
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Simple binding site analysis failed: {e}")
+            return []
 
     def _extract_protein_residues(self, protein_file: str) -> Tuple[List, List]:
-        """Extract protein coordinates and residue information."""
+        """Extract protein coordinates and residue information from PDB file."""
         coords = []
         residues = []
         
         try:
             with open(protein_file, 'r') as f:
                 for line in f:
-                    if line.startswith('ATOM'):
+                    if line.startswith(('ATOM', 'HETATM')):
                         try:
+                            # Extract coordinates
                             x = float(line[30:38].strip())
                             y = float(line[38:46].strip())
                             z = float(line[46:54].strip())
                             coords.append([x, y, z])
                             
-                            residue_info = {
-                                'name': line[17:20].strip(),
-                                'chain': line[21:22].strip(),
-                                'number': int(line[22:26].strip())
-                            }
-                            residues.append(residue_info)
+                            # Extract residue information
+                            res_name = line[17:20].strip()
+                            res_number = int(line[22:26].strip())
+                            chain = line[21:22].strip()
+                            
+                            residues.append({
+                                'name': res_name,
+                                'number': res_number,
+                                'chain': chain
+                            })
                             
                         except (ValueError, IndexError):
                             continue
-                            
+            
+            logger.info(f"📍 Extracted {len(coords)} protein atoms from {len(set(r['number'] for r in residues))} residues")
+            return coords, residues
+            
         except Exception as e:
             logger.warning(f"⚠️ Failed to extract protein residues: {e}")
-            
-        return coords, residues
+            return [], []
 
     def _extract_coordinates_simple(self, file_path: str) -> List:
-        """Simple coordinate extraction from PDB-like files."""
+        """Extract coordinates from PDB/PDBQT file."""
         coords = []
         
         try:
@@ -325,11 +386,13 @@ class OutputParser:
                             coords.append([x, y, z])
                         except (ValueError, IndexError):
                             continue
-                            
+            
+            logger.info(f"📍 Extracted {len(coords)} coordinates from {file_path}")
+            return coords
+            
         except Exception as e:
             logger.warning(f"⚠️ Failed to extract coordinates: {e}")
-            
-        return coords
+            return []
 
     def _classify_interaction(self, residue_name: str, distance: float) -> str:
         """Classify interaction type based on residue and distance."""
@@ -481,52 +544,42 @@ class OutputParser:
             
         return analysis
 
-    def _parse_binding_affinities(self, log_file: str) -> List[Dict]:
-        """Parse binding affinities from Vina log file."""
+    def _parse_binding_affinities(self, pdbqt_file: str) -> List[Dict]:
+        """Parse binding affinities from PDBQT file using REMARK VINA RESULT format."""
         affinities = []
         
         try:
-            with open(log_file, 'r') as f:
+            with open(pdbqt_file, 'r') as f:
                 content = f.read()
             
-            # Look for the results table
-            table_pattern = r'mode.*?affinity.*?kcal/mol.*?\n.*?-+\n(.*?)(?=\n\n|\Z)'
-            table_match = re.search(table_pattern, content, re.DOTALL)
+            # Find all REMARK VINA RESULT lines
+            vina_results = re.findall(r'REMARK VINA RESULT:\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)', content)
             
-            if table_match:
-                table_content = table_match.group(1)
-                
-                # Parse each result line
-                for line in table_content.strip().split('\n'):
-                    line = line.strip()
-                    if not line:
-                        continue
+            for i, result in enumerate(vina_results, 1):
+                try:
+                    affinity = float(result[0])
+                    rmsd_lb = float(result[1])
+                    rmsd_ub = float(result[2])
                     
-                    parts = [p.strip() for p in line.split('|')]
-                    
-                    if len(parts) >= 2:
-                        try:
-                            mode = int(parts[0])
-                            affinity = float(parts[1])
-                            
-                            affinities.append({
-                                'mode': mode,
-                                'affinity': affinity,
-                                'rmsd_lb': float(parts[2]) if len(parts) > 2 else None,
-                                'rmsd_ub': float(parts[3]) if len(parts) > 3 else None
-                            })
-                        except ValueError:
+                    affinities.append({
+                        'mode': i,
+                        'affinity': affinity,
+                        'rmsd_lb': rmsd_lb,
+                        'rmsd_ub': rmsd_ub
+                    })
+                except ValueError:
                             continue
             
             # Sort by affinity (best first)
+            if affinities:
             affinities.sort(key=lambda x: x['affinity'])
             
-            logger.info(f"📈 Parsed {len(affinities)} binding affinities")
+            logger.info(f"📈 Parsed {len(affinities)} binding affinities from PDBQT")
             
             return affinities
             
         except Exception as e:
-            logger.error(f"Failed to parse binding affinities: {e}")
+            logger.error(f"Failed to parse affinities from PDBQT: {e}")
             return []
     
     def _extract_poses_from_pdbqt(self, output_pdbqt: str, output_dir: str) -> List[Dict]:

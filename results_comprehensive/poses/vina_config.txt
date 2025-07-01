@@ -1,0 +1,19 @@
+receptor = /home/orv/Documents/Projects/Orv-Mol/results_comprehensive/temp/protein.pdbqt
+ligand = /home/orv/Documents/Projects/Orv-Mol/results_comprehensive/temp/ligand_small.pdbqt
+out = /home/orv/Documents/Projects/Orv-Mol/results_comprehensive/poses/ligand_docked.pdbqt
+
+center_x = 0.000
+center_y = 0.000
+center_z = 0.000
+
+size_x = 22.500
+size_y = 22.500
+size_z = 22.500
+
+exhaustiveness = 32
+num_modes = 50
+energy_range = 4.0
+
+# Additional parameters
+cpu = 0  # Use all available CPUs
+seed = 42  # For reproducibility

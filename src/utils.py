@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
-from loguru import logger
+from .logger_config import logger
 import yaml
 
 

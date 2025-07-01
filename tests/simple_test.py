@@ -153,4 +153,4 @@ if __name__ == "__main__":
     else:
         print("\n⚠️ Some tests failed. Please check the issues above.")
     
-    return 0 if all_passed else 1 
+    sys.exit(0 if all_passed else 1) 

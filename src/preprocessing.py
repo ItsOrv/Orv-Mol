@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Tuple, Optional
 
 import numpy as np
-from loguru import logger
+from .logger_config import logger
 from Bio.PDB import PDBParser, PDBIO
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolDescriptors

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import seaborn as sns
 import numpy as np
-from loguru import logger
+from .logger_config import logger
 
 try:
     from scipy.spatial.distance import cdist
@@ -124,6 +124,11 @@ class VisualizationEngine:
             if docking_results and docking_results.get('affinities'):
                 self.create_energy_plots(docking_results['affinities'], str(plots_dir))
             
+            # 7. Create multi-angle annotated images and animations
+            self.create_multi_angle_annotated_images(
+                protein_file, ligand_pose, output_dir, docking_results
+            )
+            
             logger.success("✅ Comprehensive visualization suite created")
             
         except Exception as e:
@@ -165,7 +170,7 @@ class VisualizationEngine:
             
         except Exception as e:
             logger.error(f"❌ Failed to create multi-format images: {e}")
-
+    
     def create_enhanced_animations(
         self,
         protein_file: str,
@@ -190,14 +195,14 @@ class VisualizationEngine:
             )
             
             self._create_zoom_animation(
-                protein_file, ligand_pose, output_path,
-                binding_site_center, frames, duration
-            )
+                    protein_file, ligand_pose, output_path,
+                    binding_site_center, frames, duration
+                )
             
             self._create_rocking_animation(
-                protein_file, ligand_pose, output_path,
-                binding_site_center, frames, duration
-            )
+                    protein_file, ligand_pose, output_path,
+                    binding_site_center, frames, duration
+                )
             
         except Exception as e:
             logger.error(f"❌ Failed to create enhanced animations: {e}")
@@ -240,8 +245,8 @@ class VisualizationEngine:
         
         if not SCIPY_AVAILABLE:
             logger.warning("⚠️ SciPy not available, skipping contact maps")
-            return
-        
+                return
+            
         output_path = Path(output_dir)
         
         try:
@@ -274,7 +279,7 @@ class VisualizationEngine:
             ax2.set_ylabel('Ligand Atoms')
             plt.colorbar(im2, ax=ax2, label='Contact')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'contact_maps.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -369,7 +374,7 @@ class VisualizationEngine:
             ax4.set_title('Energy Statistics')
             ax4.set_xticklabels(['All Poses'])
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'energy_analysis.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -612,7 +617,7 @@ quit
                 
             except subprocess.CalledProcessError:
                 logger.warning("⚠️ Failed to create rocking animation")
-
+    
     def _check_pymol(self) -> bool:
         """Check if PyMOL is available."""
         try:
@@ -1063,7 +1068,7 @@ exit
             ax.legend()
             ax.axis('equal')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'interaction_diagram.png', 
                        dpi=300, bbox_inches='tight')
             plt.close()
@@ -1164,6 +1169,7 @@ exit
             ax.set_title('3D Protein-Ligand Interaction Network')
             ax.legend()
             
+            self._safe_tight_layout()
             plt.savefig(output_path / '3d_interaction_network.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1215,7 +1221,7 @@ exit
                                  ha="center", va="center", color="black", fontsize=8)
             
             ax.set_title('Residue-Ligand Interaction Heatmap')
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'residue_interaction_heatmap.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1279,7 +1285,7 @@ exit
             ax2.legend()
             ax2.axis('equal')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'binding_site_overview.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1319,7 +1325,7 @@ exit
                           xy=(cutoff, count), xytext=(cutoff + 0.5, count + 5),
                           arrowprops=dict(arrowstyle='->', color='red', alpha=0.7))
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'contact_frequency.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1390,7 +1396,7 @@ exit
             ax4.pie(energy_classes.values(), labels=energy_classes.keys(), autopct='%1.1f%%')
             ax4.set_title('Binding Strength Classification')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'affinity_analysis.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1436,7 +1442,7 @@ exit
             # Add grid
             ax.grid(True)
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'molecular_properties_radar.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1484,7 +1490,7 @@ exit
             ax2.pie(counts, labels=types, autopct='%1.1f%%', colors=colors)
             ax2.set_title('Interaction Type Proportions')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             plt.savefig(output_path / 'interaction_type_distribution.png', dpi=300, bbox_inches='tight')
             plt.close()
             
@@ -1621,7 +1627,7 @@ exit
             ax2.legend()
             ax2.axis('equal')
             
-            plt.tight_layout()
+            self._safe_tight_layout()
             
             # Save in multiple formats
             for fmt in formats:
@@ -1687,3 +1693,416 @@ exit
                 subprocess.run(cmd, check=True, capture_output=True, text=True)
             except subprocess.CalledProcessError:
                 logger.warning(f"⚠️ Failed to create {format_type} images with ChimeraX")
+
+    def _safe_tight_layout(self):
+        """Handle matplotlib layout safely without recursion."""
+        try:
+            plt.tight_layout()
+        except (UserWarning, ValueError):
+            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+
+    def create_multi_angle_annotated_images(self, protein_file, ligand_pose, output_dir, docking_results):
+        """Create multiple angle views with amino acid and ligand interaction annotations"""
+        try:
+            logger.info("🎬 Creating multi-angle annotated images...")
+            
+            # Create directories
+            images_dir = os.path.join(output_dir, 'images')
+            animations_dir = os.path.join(output_dir, 'animations')
+            os.makedirs(images_dir, exist_ok=True)
+            os.makedirs(animations_dir, exist_ok=True)
+            
+            # Extract coordinates
+            protein_coords, protein_atoms = self._extract_coordinates_with_atoms(protein_file)
+            ligand_coords, ligand_atoms = self._extract_coordinates_with_atoms(ligand_pose)
+            
+            if protein_coords is None or ligand_coords is None:
+                logger.warning("⚠️ Could not extract coordinates for multi-angle visualization")
+                return
+            
+            # Find binding site and key interactions
+            binding_site_residues = self._find_key_binding_residues(protein_coords, ligand_coords, protein_atoms)
+            
+            # Create multiple angle views
+            angles = [
+                (0, 0, "front"),
+                (90, 0, "side"),
+                (180, 0, "back"), 
+                (270, 0, "left"),
+                (0, 90, "top"),
+                (0, -90, "bottom"),
+                (45, 45, "diagonal1"),
+                (135, 30, "diagonal2")
+            ]
+            
+            for i, (rot_x, rot_y, view_name) in enumerate(angles):
+                self._create_annotated_view(
+                    protein_coords, ligand_coords, 
+                    protein_atoms, ligand_atoms,
+                    binding_site_residues, 
+                    os.path.join(images_dir, f'docking_view_{view_name}.png'),
+                    rot_x, rot_y, view_name
+                )
+            
+            # Create rotation animation
+            self._create_rotation_animation(
+                protein_coords, ligand_coords,
+                protein_atoms, ligand_atoms, 
+                binding_site_residues,
+                os.path.join(animations_dir, 'rotation_animation.gif')
+            )
+            
+            # Create interaction focus animation
+            self._create_interaction_focus_animation(
+                protein_coords, ligand_coords,
+                protein_atoms, ligand_atoms,
+                binding_site_residues,
+                os.path.join(animations_dir, 'interaction_focus.gif')
+            )
+            
+            logger.info("✅ Multi-angle annotated images and animations created")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create multi-angle images: {e}")
+
+    def _extract_coordinates_with_atoms(self, pdb_file):
+        """Extract coordinates along with atom information"""
+        try:
+            coords = []
+            atoms = []
+            
+            with open(pdb_file, 'r') as f:
+                for line in f:
+                    if line.startswith(('ATOM', 'HETATM')):
+                        try:
+                            x = float(line[30:38].strip())
+                            y = float(line[38:46].strip()) 
+                            z = float(line[46:54].strip())
+                            
+                            atom_info = {
+                                'coords': (x, y, z),
+                                'atom_name': line[12:16].strip(),
+                                'residue_name': line[17:20].strip(),
+                                'residue_number': int(line[22:26].strip()),
+                                'chain': line[21].strip(),
+                                'element': line[76:78].strip() if len(line) > 76 else line[12:13]
+                            }
+                            
+                            coords.append([x, y, z])
+                            atoms.append(atom_info)
+                            
+                        except (ValueError, IndexError):
+                            continue
+            
+            return np.array(coords) if coords else None, atoms
+            
+        except Exception as e:
+            logger.error(f"Failed to extract coordinates with atoms: {e}")
+            return None, []
+
+    def _find_key_binding_residues(self, protein_coords, ligand_coords, protein_atoms, cutoff=4.0):
+        """Find key binding site residues within cutoff distance"""
+        binding_residues = {}
+        
+        try:
+            if len(protein_coords) == 0 or len(ligand_coords) == 0:
+                return binding_residues
+            
+            ligand_center = np.mean(ligand_coords, axis=0)
+            
+            for i, atom in enumerate(protein_atoms):
+                if i >= len(protein_coords):
+                    continue
+                    
+                distance = np.linalg.norm(protein_coords[i] - ligand_center)
+                
+                if distance <= cutoff:
+                    res_key = f"{atom['residue_name']}{atom['residue_number']}"
+                    if res_key not in binding_residues:
+                        binding_residues[res_key] = {
+                            'name': atom['residue_name'],
+                            'number': atom['residue_number'],
+                            'chain': atom['chain'],
+                            'coords': [],
+                            'distance': distance
+                        }
+                    binding_residues[res_key]['coords'].append(protein_coords[i])
+            
+            # Calculate center for each residue
+            for res_key in binding_residues:
+                coords_array = np.array(binding_residues[res_key]['coords'])
+                binding_residues[res_key]['center'] = np.mean(coords_array, axis=0)
+            
+            return binding_residues
+            
+        except Exception as e:
+            logger.error(f"Error finding binding residues: {e}")
+            return {}
+
+    def _create_annotated_view(self, protein_coords, ligand_coords, protein_atoms, ligand_atoms, 
+                              binding_residues, output_path, rot_x, rot_y, view_name):
+        """Create annotated view from specific angle"""
+        try:
+            fig = plt.figure(figsize=(16, 12))
+            ax = fig.add_subplot(111, projection='3d')
+            
+            # Rotate coordinates
+            protein_rotated = self._rotate_coordinates(protein_coords, rot_x, rot_y)
+            ligand_rotated = self._rotate_coordinates(ligand_coords, rot_x, rot_y)
+            
+            # Plot protein backbone (alpha carbons only)
+            ca_indices = [i for i, atom in enumerate(protein_atoms) if atom['atom_name'] == 'CA']
+            if ca_indices:
+                ca_coords = protein_rotated[ca_indices]
+                ax.plot(ca_coords[:, 0], ca_coords[:, 1], ca_coords[:, 2], 
+                       'lightblue', linewidth=1, alpha=0.6, label='Protein Backbone')
+            
+            # Plot binding site residues with special highlighting
+            for res_key, res_info in binding_residues.items():
+                center_rotated = self._rotate_coordinates(res_info['center'].reshape(1, -1), rot_x, rot_y)[0]
+                
+                ax.scatter(center_rotated[0], center_rotated[1], center_rotated[2],
+                          s=200, c='red', alpha=0.8, marker='o', edgecolor='darkred', linewidth=2)
+                
+                # Add annotation with arrow
+                ax.annotate(f'{res_info["name"]}{res_info["number"]}',
+                           xy=(center_rotated[0], center_rotated[1]), xytext=(10, 10),
+                           textcoords='offset points', fontsize=10, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.8),
+                           arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1', 
+                                         color='red', linewidth=2))
+            
+            # Plot ligand with special highlighting
+            ax.scatter(ligand_rotated[:, 0], ligand_rotated[:, 1], ligand_rotated[:, 2],
+                      s=150, c='green', alpha=0.9, marker='o', edgecolor='darkgreen', 
+                      linewidth=2, label='Ligand')
+            
+            # Add ligand center annotation
+            ligand_center = np.mean(ligand_rotated, axis=0)
+            ax.annotate('Ligand\nBinding Site',
+                       xy=(ligand_center[0], ligand_center[1]), xytext=(20, 20),
+                       textcoords='offset points', fontsize=12, fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgreen', alpha=0.9),
+                       arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.2',
+                                     color='green', linewidth=3))
+            
+            # Draw interaction lines
+            for res_key, res_info in binding_residues.items():
+                center_rotated = self._rotate_coordinates(res_info['center'].reshape(1, -1), rot_x, rot_y)[0]
+                ax.plot([center_rotated[0], ligand_center[0]], 
+                       [center_rotated[1], ligand_center[1]], 
+                       [center_rotated[2], ligand_center[2]], 
+                       'orange', linewidth=2, alpha=0.7, linestyle='--')
+            
+            # Styling
+            ax.set_title(f'Protein-Ligand Complex - {view_name.title()} View\n'
+                        f'Key Binding Residues: {len(binding_residues)} residues', 
+                        fontsize=16, fontweight='bold', pad=20)
+            
+            ax.legend(loc='upper right', fontsize=12)
+            ax.grid(True, alpha=0.3)
+            
+            # Set equal aspect ratio
+            all_coords = np.vstack([protein_rotated, ligand_rotated])
+            max_range = np.array([all_coords[:,0].max()-all_coords[:,0].min(),
+                                all_coords[:,1].max()-all_coords[:,1].min(),
+                                all_coords[:,2].max()-all_coords[:,2].min()]).max() / 2.0
+            
+            mid_x = (all_coords[:,0].max()+all_coords[:,0].min()) * 0.5
+            mid_y = (all_coords[:,1].max()+all_coords[:,1].min()) * 0.5
+            mid_z = (all_coords[:,2].max()+all_coords[:,2].min()) * 0.5
+            
+            ax.set_xlim(mid_x - max_range, mid_x + max_range)
+            ax.set_ylim(mid_y - max_range, mid_y + max_range)
+            ax.set_zlim(mid_z - max_range, mid_z + max_range)
+            
+            ax.set_xlabel('X (Å)', fontsize=12)
+            ax.set_ylabel('Y (Å)', fontsize=12)
+            ax.set_zlabel('Z (Å)', fontsize=12)
+            
+            plt.tight_layout()
+            plt.savefig(output_path, dpi=300, bbox_inches='tight', 
+                       facecolor='white', edgecolor='none')
+            plt.close()
+            
+            logger.info(f"✅ Created annotated view: {view_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create annotated view {view_name}: {e}")
+
+    def _rotate_coordinates(self, coords, rot_x, rot_y):
+        """Rotate coordinates by given angles"""
+        if len(coords) == 0:
+            return coords
+            
+        # Convert to radians
+        rx = np.radians(rot_x)
+        ry = np.radians(rot_y)
+        
+        # Rotation matrices
+        Rx = np.array([[1, 0, 0],
+                      [0, np.cos(rx), -np.sin(rx)],
+                      [0, np.sin(rx), np.cos(rx)]])
+        
+        Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
+                      [0, 1, 0],
+                      [-np.sin(ry), 0, np.cos(ry)]])
+        
+        # Apply rotations
+        rotated = coords @ Rx.T @ Ry.T
+        return rotated
+
+    def _create_rotation_animation(self, protein_coords, ligand_coords, protein_atoms, 
+                                  ligand_atoms, binding_residues, output_path):
+        """Create rotation animation GIF"""
+        try:
+            logger.info("🎬 Creating rotation animation...")
+            
+            frames = []
+            n_frames = 36  # 10 degree increments
+            
+            for frame in range(n_frames):
+                angle = frame * 10
+                
+                fig = plt.figure(figsize=(12, 10))
+                ax = fig.add_subplot(111, projection='3d')
+                
+                # Rotate coordinates
+                protein_rotated = self._rotate_coordinates(protein_coords, 0, angle)
+                ligand_rotated = self._rotate_coordinates(ligand_coords, 0, angle)
+                
+                # Plot protein backbone
+                ca_indices = [i for i, atom in enumerate(protein_atoms) if atom['atom_name'] == 'CA']
+                if ca_indices:
+                    ca_coords = protein_rotated[ca_indices]
+                    ax.plot(ca_coords[:, 0], ca_coords[:, 1], ca_coords[:, 2], 
+                           'lightblue', linewidth=1, alpha=0.6)
+                
+                # Plot binding residues
+                for res_key, res_info in binding_residues.items():
+                    center_rotated = self._rotate_coordinates(res_info['center'].reshape(1, -1), 0, angle)[0]
+                    ax.scatter(center_rotated[0], center_rotated[1], center_rotated[2],
+                              s=150, c='red', alpha=0.8)
+                
+                # Plot ligand
+                ax.scatter(ligand_rotated[:, 0], ligand_rotated[:, 1], ligand_rotated[:, 2],
+                          s=100, c='green', alpha=0.9)
+                
+                # Styling
+                ax.set_title(f'Protein-Ligand Complex Rotation\nFrame {frame+1}/{n_frames}', 
+                            fontsize=14, fontweight='bold')
+                
+                # Set consistent limits
+                all_coords = np.vstack([protein_coords, ligand_coords])
+                max_range = np.array([all_coords[:,0].max()-all_coords[:,0].min(),
+                                    all_coords[:,1].max()-all_coords[:,1].min(),
+                                    all_coords[:,2].max()-all_coords[:,2].min()]).max() / 2.0
+                
+                mid_x = (all_coords[:,0].max()+all_coords[:,0].min()) * 0.5
+                mid_y = (all_coords[:,1].max()+all_coords[:,1].min()) * 0.5
+                mid_z = (all_coords[:,2].max()+all_coords[:,2].min()) * 0.5
+                
+                ax.set_xlim(mid_x - max_range, mid_x + max_range)
+                ax.set_ylim(mid_y - max_range, mid_y + max_range)
+                ax.set_zlim(mid_z - max_range, mid_z + max_range)
+                
+                ax.grid(False)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_zticks([])
+                
+                # Save frame to bytes
+                import io
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                buf.seek(0)
+                frames.append(plt.imread(buf))
+                plt.close()
+                buf.close()
+            
+            # Save as GIF using imageio if available
+            try:
+                import imageio
+                imageio.mimsave(output_path, frames, duration=0.2, loop=0)
+                logger.info(f"✅ Rotation animation saved: {output_path}")
+            except ImportError:
+                logger.warning("⚠️ imageio not available for GIF creation")
+                
+        except Exception as e:
+            logger.error(f"Failed to create rotation animation: {e}")
+
+    def _create_interaction_focus_animation(self, protein_coords, ligand_coords, protein_atoms,
+                                           ligand_atoms, binding_residues, output_path):
+        """Create animation focusing on different interactions"""
+        try:
+            logger.info("🎬 Creating interaction focus animation...")
+            
+            frames = []
+            residue_list = list(binding_residues.keys())
+            
+            for i, res_key in enumerate(residue_list):
+                fig = plt.figure(figsize=(12, 10))
+                ax = fig.add_subplot(111, projection='3d')
+                
+                # Plot protein backbone
+                ca_indices = [j for j, atom in enumerate(protein_atoms) if atom['atom_name'] == 'CA']
+                if ca_indices:
+                    ca_coords = protein_coords[ca_indices]
+                    ax.plot(ca_coords[:, 0], ca_coords[:, 1], ca_coords[:, 2], 
+                           'lightblue', linewidth=1, alpha=0.4)
+                
+                # Plot all binding residues with different highlighting
+                for other_key, res_info in binding_residues.items():
+                    color = 'yellow' if other_key == res_key else 'red'
+                    size = 250 if other_key == res_key else 100
+                    alpha = 1.0 if other_key == res_key else 0.6
+                    
+                    ax.scatter(res_info['center'][0], res_info['center'][1], res_info['center'][2],
+                              s=size, c=color, alpha=alpha, edgecolor='black', linewidth=2)
+                
+                # Plot ligand
+                ax.scatter(ligand_coords[:, 0], ligand_coords[:, 1], ligand_coords[:, 2],
+                          s=120, c='green', alpha=0.9, edgecolor='darkgreen')
+                
+                # Highlight current interaction
+                current_res = binding_residues[res_key]
+                ligand_center = np.mean(ligand_coords, axis=0)
+                
+                ax.plot([current_res['center'][0], ligand_center[0]], 
+                       [current_res['center'][1], ligand_center[1]], 
+                       [current_res['center'][2], ligand_center[2]], 
+                       'orange', linewidth=4, alpha=0.9)
+                
+                ax.set_title(f'Key Interaction: {current_res["name"]}{current_res["number"]}\n'
+                            f'Distance: {current_res["distance"]:.2f} Å', 
+                            fontsize=14, fontweight='bold')
+                
+                # Set limits focused on interaction
+                center_point = (current_res['center'] + ligand_center) / 2
+                range_size = 15
+                
+                ax.set_xlim(center_point[0] - range_size, center_point[0] + range_size)
+                ax.set_ylim(center_point[1] - range_size, center_point[1] + range_size)
+                ax.set_zlim(center_point[2] - range_size, center_point[2] + range_size)
+                
+                ax.grid(True, alpha=0.3)
+                
+                # Save frame
+                import io
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                buf.seek(0)
+                frames.append(plt.imread(buf))
+                plt.close()
+                buf.close()
+            
+            # Save as GIF
+            try:
+                import imageio
+                imageio.mimsave(output_path, frames, duration=1.0, loop=0)
+                logger.info(f"✅ Interaction focus animation saved: {output_path}")
+            except ImportError:
+                logger.warning("⚠️ imageio not available for GIF creation")
+                
+        except Exception as e:
+            logger.error(f"Failed to create interaction focus animation: {e}")

@@ -35,7 +35,7 @@ except ImportError:
     RDKIT_AVAILABLE = False
 
 import pandas as pd
-from loguru import logger
+from .logger_config import logger
 
 
 class ProfessionalCleaner:

@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from loguru import logger
+from .logger_config import logger
 
 
 class DockingEngine:
@@ -50,7 +50,6 @@ class DockingEngine:
         
         # Generate output filenames
         output_pdbqt = output_path / f"{ligand_path.stem}_docked.pdbqt"
-        log_file = output_path / f"{ligand_path.stem}_vina.log"
         config_file = output_path / "vina_config.txt"
         
         try:
@@ -60,7 +59,6 @@ class DockingEngine:
                 receptor=receptor,
                 ligand=ligand,
                 output=output_pdbqt,
-                log=log_file,
                 box_params=box_params,
                 exhaustiveness=exhaustiveness,
                 num_modes=num_modes,
@@ -74,16 +72,15 @@ class DockingEngine:
             if not output_pdbqt.exists():
                 raise FileNotFoundError(f"Vina output file not found: {output_pdbqt}")
             
-            if not log_file.exists():
-                raise FileNotFoundError(f"Vina log file not found: {log_file}")
+            # Note: Vina v1.2.5+ doesn't create separate log files anymore
+            # The output is embedded in the PDBQT file
             
             logger.success(f"✅ Docking completed successfully!")
             logger.info(f"📄 Output PDBQT: {output_pdbqt}")
-            logger.info(f"📄 Log file: {log_file}")
             
             return {
                 'output_pdbqt': str(output_pdbqt),
-                'log_file': str(log_file),
+                'log_file': str(output_pdbqt),  # Use PDBQT file as log source
                 'config_file': str(config_file)
             }
             
@@ -116,7 +113,6 @@ class DockingEngine:
                 
                 # Create temporary output files
                 output_pdbqt = temp_path / "validation_output.pdbqt"
-                log_file = temp_path / "validation.log"
                 config_file = temp_path / "validation_config.txt"
                 
                 # Create minimal config for validation
@@ -125,7 +121,6 @@ class DockingEngine:
                     receptor=receptor,
                     ligand=ligand,
                     output=output_pdbqt,
-                    log=log_file,
                     box_params=box_params,
                     exhaustiveness=1,  # Minimal exhaustiveness for speed
                     num_modes=1,       # Only one mode
@@ -190,7 +185,6 @@ class DockingEngine:
         receptor: str,
         ligand: str,
         output: Path,
-        log: Path,
         box_params: Dict[str, float],
         exhaustiveness: int,
         num_modes: int,
@@ -201,7 +195,6 @@ class DockingEngine:
             f.write(f"receptor = {receptor}\n")
             f.write(f"ligand = {ligand}\n")
             f.write(f"out = {output}\n")
-            # f.write(f"log = {log}\n")  # Log option not supported in Vina v1.2.5+
             f.write("\n")
             f.write(f"center_x = {box_params['center_x']:.3f}\n")
             f.write(f"center_y = {box_params['center_y']:.3f}\n")
