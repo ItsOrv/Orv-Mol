@@ -57,17 +57,26 @@ def validate_inputs(protein_file: str, ligand_file: str):
     logger.info(f"✅ Input validation passed")
 
 
-def create_output_structure(output_dir: str) -> Dict[str, str]:
+def create_output_structure(output_dir: str, overwrite: bool = False) -> Dict[str, str]:
     """Create organized output directory structure."""
     base_path = Path(output_dir)
     
+    # Check if directory exists and handle overwrite
+    if base_path.exists() and not overwrite:
+        import time
+        timestamp = int(time.time())
+        base_path = Path(f"{output_dir}_{timestamp}")
+        logger.warning(f"⚠️  Output directory exists, using: {base_path}")
+    
     # Define subdirectories
     subdirs = {
+        'root': base_path,
         'images': base_path / 'images',
         'animation': base_path / 'animation', 
         'poses': base_path / 'poses',
         'logs': base_path / 'logs',
-        'temp': base_path / 'temp'
+        'temp': base_path / 'temp',
+        'visualizations': base_path / 'visualizations'
     }
     
     # Create directories

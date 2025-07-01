@@ -358,7 +358,14 @@ def main():
         )
         docker = DockingEngine()
         parser_engine = OutputParser()
-        visualizer = VisualizationEngine() if not args.skip_visualization else None
+        # Load configuration
+        config = {}
+        if Path('config.yaml').exists():
+            import yaml
+            with open('config.yaml', 'r') as f:
+                config = yaml.safe_load(f)
+        
+        visualizer = VisualizationEngine(config=config) if not args.skip_visualization else None
         
         if professional_mode:
             logger.info(f"Professional cleaning enabled (pH={args.ph})")
@@ -464,8 +471,12 @@ def main():
         logger.info(f"Best binding affinity: {parsed_results['best_affinity']:.2f} kcal/mol")
         logger.info(f"Number of poses: {len(parsed_results['poses'])}")
         
-        # Step 4: Analysis
+        # Step 4: Enhanced Analysis
+        detailed_analysis = None
         if not args.skip_analysis:
+            logger.info("Step 4: Performing comprehensive analysis...")
+            
+            # Professional cleaning summary
             if professional_mode:
                 logger.info("Professional cleaning summary:")
                 cleaning_summary = preprocessor.get_cleaning_summary()
@@ -480,37 +491,60 @@ def main():
                     logger.info(f"  Drug-likeness: {ligand_props.get('druglike_score', 'N/A'):.1f}/10")
                     logger.info(f"  Molecular weight: {ligand_props.get('MW', 'N/A'):.1f} Da")
                     logger.info(f"  Conformers tested: {ligand_props.get('conformer_count', 1)}")
-        
-        # Step 5: Visualization
-        if not args.skip_visualization and visualizer:
-            logger.info("Step 4: Generating visualizations...")
             
-            # Create visualization images
-            visualizer.create_docking_images(
-                protein_file=args.protein,
-                ligand_pose=parsed_results['best_pose_pdb'],
-                output_dir=output_paths['images'],
-                binding_site_center=(box_params['center_x'], box_params['center_y'], box_params['center_z']),
-                image_format=args.image_format,
-                dpi=args.image_dpi
+            # Detailed binding interaction analysis
+            detailed_analysis = parser_engine.analyze_binding_interactions(
+                detailed_results=parsed_results,
+                protein_file=args.protein if not args.skip_preprocessing else None,
+                ligand_file=args.ligand if not args.skip_preprocessing else None
             )
             
-            # Generate interaction plots if requested
-            if args.interaction_plots:
-                visualizer.create_interaction_plots(
+            # Log interaction analysis summary
+            if detailed_analysis.get('binding_site_residues'):
+                logger.info(f"  Binding site residues: {len(detailed_analysis['binding_site_residues'])}")
+            
+            if detailed_analysis.get('pharmacological_analysis'):
+                pharm_analysis = detailed_analysis['pharmacological_analysis']
+                if pharm_analysis.get('lipinski_compliant') is not None:
+                    compliance = "✅ YES" if pharm_analysis['lipinski_compliant'] else "❌ NO"
+                    logger.info(f"  Lipinski compliance: {compliance}")
+                if pharm_analysis.get('drug_likeness_score'):
+                    logger.info(f"  Drug-likeness score: {pharm_analysis['drug_likeness_score']:.1f}/10")
+        
+        # Step 5: Comprehensive Visualization Suite
+        if not args.skip_visualization and visualizer:
+            logger.info("Step 5: Creating comprehensive visualization suite...")
+            
+            # Create comprehensive visualization suite
+            visualizer.create_comprehensive_visualization_suite(
+                protein_file=args.protein,
+                ligand_pose=parsed_results['best_pose_pdb'],
+                output_dir=output_paths['visualizations'],
+                binding_site_center=(box_params['center_x'], box_params['center_y'], box_params['center_z']),
+                docking_results={**parsed_results, **(detailed_analysis or {})}
+            )
+            
+            logger.success("✅ Visualization suite created with:")
+            logger.info("  • High-resolution molecular images (multiple formats)")
+            logger.info("  • Interactive 3D animations and videos")
+            logger.info("  • Contact maps and interaction diagrams")
+            logger.info("  • Energy distribution and binding analysis plots")
+            logger.info("  • Molecular properties radar charts")
+            
+            # Legacy compatibility - create individual outputs if specifically requested
+            if hasattr(args, 'interaction_plots') and args.interaction_plots:
+                visualizer.create_interaction_diagram(
                     protein_file=args.protein,
                     ligand_pose=parsed_results['best_pose_pdb'],
                     output_dir=output_paths['images']
                 )
             
-            # Create animation if requested
-            if args.animation:
-                logger.info("Creating 3D rotation animation...")
-                visualizer.create_rotation_animation(
+            if hasattr(args, 'animation') and args.animation:
+                visualizer.create_3d_animation(
                     protein_file=args.protein,
                     ligand_pose=parsed_results['best_pose_pdb'],
                     output_dir=output_paths['animation'],
-                    center=(box_params['center_x'], box_params['center_y'], box_params['center_z'])
+                    binding_site_center=(box_params['center_x'], box_params['center_y'], box_params['center_z'])
                 )
         
         # Step 6: Generate reports

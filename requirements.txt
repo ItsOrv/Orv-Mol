@@ -2,8 +2,8 @@
 # Core Dependencies
 
 # Chemistry and molecular analysis
-rdkit>=2025.3.3
-biopython>=1.85
+rdkit>=2022.09.1
+biopython>=1.79
 
 # Scientific computing
 numpy>=1.21.0
@@ -16,8 +16,8 @@ seaborn>=0.11.0
 pillow>=8.0.0
 
 # Progress and logging
-tqdm>=4.62.0
-loguru>=0.7.0
+tqdm>=4.64.0
+loguru>=0.6.0
 
 # Configuration and file handling
 pyyaml>=6.0
@@ -68,3 +68,104 @@ loguru>=0.6.0
 
 # Optional: ChimeraX (requires separate installation)
 # chimera-daily  # Install separately via conda or ChimeraX website 
+
+# Chemical Informatics
+rdkit>=2022.09.1
+
+# Visualization and Plotting
+plotly>=5.0.0
+kaleido>=0.2.1  # For static image export in Plotly
+
+# Development and Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Optional Performance Dependencies
+numba>=0.56.0  # For numerical optimization
+scikit-learn>=1.1.0  # For clustering and analysis
+
+# Data Processing
+openpyxl>=3.0.9  # For Excel file support
+xlsxwriter>=3.0.3  # For writing Excel files
+
+# Image and Video Processing
+Pillow>=9.0.0  # For image manipulation
+imageio>=2.19.0  # For animation creation
+imageio-ffmpeg>=0.4.7  # FFmpeg backend for video creation
+
+# Web Interface (optional)
+flask>=2.2.0  # For web interface
+dash>=2.6.0  # For interactive dashboards
+dash-bio>=1.0.0  # For molecular visualization in web
+
+# Progress Bars and UI
+tqdm>=4.64.0  # Progress bars
+rich>=12.0.0  # Rich terminal output
+
+# Configuration and CLI
+click>=8.0.0  # Command line interface
+configparser>=5.3.0  # Configuration file parsing
+
+# Documentation (optional)
+sphinx>=5.0.0  # Documentation generation
+sphinx-rtd-theme>=1.0.0  # ReadTheDocs theme
+
+# Jupyter Notebook Support (optional)
+jupyter>=1.0.0
+ipywidgets>=7.7.0
+nglview>=3.0.0  # For molecular visualization in Jupyter
+
+# Additional Scientific Computing
+sympy>=1.10.0  # Symbolic mathematics
+networkx>=2.8.0  # Network analysis
+
+# File Format Support
+prody>=2.0.0  # Protein dynamics analysis
+mdanalysis>=2.2.0  # Molecular dynamics analysis
+
+# Statistical Analysis
+statsmodels>=0.13.0  # Statistical modeling
+pingouin>=0.5.0  # Statistical tests
+
+# Machine Learning (optional)
+scikit-learn>=1.1.0
+tensorflow>=2.9.0  # For ML-based predictions
+keras>=2.9.0  # High-level neural networks
+
+# Database Connectivity (optional)
+sqlalchemy>=1.4.0  # Database ORM
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+
+# Cloud Storage (optional)
+boto3>=1.24.0  # AWS SDK
+google-cloud-storage>=2.5.0  # Google Cloud Storage
+
+# Performance Monitoring (optional)
+psutil>=5.9.0  # System monitoring
+memory-profiler>=0.60.0  # Memory usage profiling
+
+# Alternative Installation Notes:
+# 
+# For PyMOL (required for advanced visualization):
+# - Open source version: conda install -c conda-forge pymol-open-source
+# - Commercial version: Follow PyMOL installation guide
+#
+# For ChimeraX (required for advanced visualization):
+# - Download from https://www.cgl.ucsf.edu/chimerax/download.html
+#
+# For AutoDock Vina (required for docking):
+# - conda install -c conda-forge vina
+# - or download from https://vina.scripps.edu/
+#
+# For Open Babel (required for format conversion):
+# - conda install -c conda-forge openbabel
+#
+# For FFmpeg (required for video generation):
+# - conda install -c conda-forge ffmpeg
+# - or system package manager: apt-get install ffmpeg
+
+# Version-specific notes:
+# - RDKit: May require conda installation for better performance
+# - PyMOL: Open source version has limited features compared to commercial
+# - ChimeraX: Free for academic use, registration required
+# - Some packages may require specific Python versions (3.8-3.11 recommended) 

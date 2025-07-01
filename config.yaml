@@ -1,59 +1,278 @@
-# Automated Molecular Docking Pipeline Configuration
+# Orv-Mol Professional Molecular Docking Configuration
+# =======================================================
 
-# AutoDock Vina parameters
-vina:
-  exhaustiveness: 8        # Search thoroughness (higher = more thorough but slower)
-  num_modes: 9            # Number of binding modes to generate
-  energy_range: 3.0       # Maximum energy difference for modes (kcal/mol)
-  seed: 42               # Random seed for reproducibility
+# Docking Parameters
+docking:
+  # Basic parameters
+  exhaustiveness: 16              # Search thoroughness (4-32, higher=better but slower)
+  num_modes: 15                   # Number of binding modes to generate  
+  energy_range: 3.5               # Energy range for binding modes (kcal/mol)
+  
+  # Grid box settings (auto-calculated if not specified)
+  grid_box:
+    auto_calculate: true          # Automatically calculate box from protein
+    padding: 5.0                  # Extra padding around protein (Angstroms)
+    min_size: 20.0               # Minimum box size (Angstroms)
+    max_size: 30.0               # Maximum box size (Angstroms)
+  
+  # Performance settings
+  cpu_cores: 0                    # Number of CPU cores (0 = auto-detect)
+  memory_limit: 8                 # Memory limit in GB
+  timeout: 3600                   # Timeout in seconds (1 hour)
+  
+  # Advanced docking options
+  scoring_function: "vina"        # Scoring function (vina, ad4)
+  local_search: true              # Enable local search optimization
+  randomize_only_torsions: false  # Randomize only torsional angles
 
-# Visualization settings
-visualization:
-  image_width: 1200       # Image width in pixels
-  image_height: 900       # Image height in pixels
-  animation_frames: 120   # Number of animation frames
-  animation_duration: 8   # Animation duration in seconds
-  ray_trace: true        # Enable ray tracing for high quality
-  antialias: 2           # Anti-aliasing level
-
-# Preprocessing options
+# Preprocessing Settings  
 preprocessing:
-  add_hydrogens: true     # Add hydrogens to structures
-  remove_waters: true     # Remove water molecules from protein
-  minimize_ligand: true   # Energy minimize ligand structure
-  ph: 7.4                # pH for protonation state
+  # Professional cleaning mode
+  professional_mode: true         # Enable advanced molecular cleaning
+  ph: 7.4                        # Physiological pH for protonation
+  ionic_strength: 0.15           # Ionic strength (M) for electrostatics
+  
+  # Protein preparation
+  protein:
+    remove_waters: true           # Remove water molecules
+    remove_heteroatoms: false     # Keep important heteroatoms (metals, cofactors)
+    add_hydrogens: true           # Add hydrogen atoms
+    optimize_sidechains: true     # Optimize sidechain conformations
+    repair_structure: true        # Repair missing atoms/residues
+    
+    # Chain selection
+    select_chains: []             # Specific chains to include (empty = all)
+    ignore_chains: []             # Chains to ignore
+    
+    # Quality filters
+    min_resolution: 3.5           # Minimum crystal structure resolution (Å)
+    max_b_factor: 100.0          # Maximum B-factor for atoms
+  
+  # Ligand preparation  
+  ligand:
+    generate_conformers: 5        # Number of conformers to generate
+    minimize_energy: true         # Energy minimization
+    add_hydrogens: true           # Add hydrogen atoms
+    assign_charges: true          # Assign partial charges
+    force_field: "MMFF94"        # Force field (MMFF94, UFF, GAFF)
+    
+    # Stereochemistry
+    enumerate_stereoisomers: false # Generate stereoisomers
+    max_stereoisomers: 4          # Maximum stereoisomers to generate
+    
+    # Filtering
+    drug_like_filter: true        # Apply drug-likeness filters
+    max_molecular_weight: 800     # Maximum molecular weight (Da)
+    max_rotatable_bonds: 15       # Maximum rotatable bonds
 
-# Grid box settings (for targeted docking)
-grid:
-  default_size: 22.5      # Default grid box size (Å)
-  padding: 5.0           # Extra padding around protein (Å)
-  min_size: 15.0         # Minimum grid box size (Å)
-  max_size: 50.0         # Maximum grid box size (Å)
-
-# Output settings
+# Output Settings
 output:
-  save_intermediate: true  # Save intermediate files
-  compress_results: false # Compress output directory
-  cleanup_temp: false    # Clean up temporary files
+  # File formats
+  save_logs: true                 # Save detailed log files
+  generate_reports: true          # Generate analysis reports
+  export_csv: true               # Export results to CSV
+  export_json: true              # Export results to JSON
+  export_xml: false              # Export results to XML
+  
+  # Result management
+  keep_intermediate_files: false  # Keep temporary/intermediate files
+  compress_results: false        # Compress result archives
+  max_poses_to_save: 10          # Maximum poses to save per ligand
+  
+  # File naming
+  timestamp_files: true          # Add timestamp to filenames
+  include_parameters: true       # Include parameters in filenames
 
-# Logging configuration
-logging:
-  level: INFO            # Log level (DEBUG, INFO, WARNING, ERROR)
-  save_logs: true        # Save logs to file
-  log_rotation: "10 MB"  # Log file rotation size
-  log_retention: "7 days" # Log file retention period
+# Visualization Settings
+visualization:
+  # Image generation
+  generate_images: true           # Create molecular images
+  image_format: "png"            # Image format (png, jpg, svg, pdf)
+  image_dpi: 300                 # Image resolution (DPI)
+  image_width: 1200              # Image width in pixels
+  image_height: 900              # Image height in pixels
+  
+  # 3D visualization software
+  preferred_software: "auto"      # Preferred software (auto, pymol, chimerax, matplotlib)
+  fallback_to_matplotlib: true   # Use matplotlib if others unavailable
+  
+  # PyMOL settings
+  pymol:
+    ray_tracing: true             # Enable ray tracing for high quality
+    antialias: 2                  # Antialiasing level (0-4)
+    ambient_light: 0.3            # Ambient lighting (0-1)
+    direct_light: 0.7             # Direct lighting (0-1)
+    cartoon_transparency: 0.0     # Protein cartoon transparency (0-1)
+    surface_transparency: 0.3     # Surface transparency (0-1)
+  
+  # ChimeraX settings  
+  chimerax:
+    lighting: "soft"              # Lighting mode (soft, full, gentle)
+    shadows: true                 # Enable shadows
+    depth_cue: true               # Enable depth cueing
+    silhouettes: false            # Enable silhouette edges
+  
+  # Color schemes
+  colors:
+    protein: "gray80"             # Protein color
+    ligand: "red"                 # Ligand color
+    binding_site: "yellow"        # Binding site color
+    hydrogen_bonds: "blue"        # Hydrogen bond color
+    hydrophobic: "orange"         # Hydrophobic interaction color
+    electrostatic: "magenta"      # Electrostatic interaction color
+  
+  # Animation settings
+  animation:
+    create_animations: false      # Create 3D rotation animations
+    frames: 120                   # Number of animation frames
+    duration: 8                   # Animation duration (seconds)
+    rotation_axis: "y"            # Rotation axis (x, y, z)
+    rotation_angle: 360           # Total rotation angle (degrees)
+    video_format: "mp4"           # Video format (mp4, avi, gif)
+    video_quality: "high"         # Video quality (low, medium, high)
+  
+  # Interaction diagrams
+  interactions:
+    create_diagrams: true         # Create 2D interaction diagrams
+    show_hydrogen_bonds: true     # Show hydrogen bonds
+    show_hydrophobic: true        # Show hydrophobic contacts
+    show_electrostatic: true      # Show electrostatic interactions
+    show_van_der_waals: false    # Show van der Waals contacts
+    contact_cutoff: 4.0           # Contact distance cutoff (Å)
 
-# Performance settings
+# Analysis Settings
+analysis:
+  # Binding affinity analysis
+  binding_affinity:
+    classify_strength: true       # Classify binding strength
+    calculate_statistics: true    # Calculate statistical measures
+    energy_histogram: true        # Generate energy distribution plots
+  
+  # Interaction analysis
+  interactions:
+    detailed_analysis: true       # Perform detailed interaction analysis
+    binding_site_analysis: true   # Analyze binding site properties
+    pharmacophore_analysis: false # Generate pharmacophore models
+    contact_maps: true            # Generate contact maps
+  
+  # Drug-likeness assessment
+  drug_properties:
+    lipinski_rule: true           # Apply Lipinski's Rule of Five
+    veber_rule: true              # Apply Veber's rule
+    egan_rule: false              # Apply Egan's rule
+    custom_filters: []            # Custom property filters
+  
+  # ADMET predictions
+  admet:
+    calculate_descriptors: true   # Calculate molecular descriptors
+    predict_solubility: false    # Predict aqueous solubility
+    predict_permeability: false  # Predict membrane permeability
+    predict_toxicity: false      # Predict toxicity alerts
+
+# Performance Optimization
 performance:
-  cpu_count: 0           # Number of CPUs to use (0 = all available)
-  memory_limit: null     # Memory limit in GB (null = no limit)
-  timeout: 3600          # Maximum execution time in seconds
+  # Memory management
+  chunk_size: 1000               # Process ligands in chunks
+  memory_cleanup: true           # Clean up memory after each job
+  temp_directory: "/tmp"         # Temporary file directory
+  
+  # Parallel processing
+  parallel_ligands: true         # Process multiple ligands in parallel
+  parallel_conformers: true      # Process conformers in parallel
+  max_parallel_jobs: 4           # Maximum parallel jobs
+  
+  # Caching
+  enable_caching: true           # Cache preprocessing results
+  cache_directory: "cache"       # Cache directory
+  cache_expiry: 86400           # Cache expiry time (seconds)
 
-# Software paths (leave empty for auto-detection)
-software_paths:
-  vina: ""               # Path to vina executable
-  obabel: ""             # Path to obabel executable
-  pymol: ""              # Path to pymol executable
-  chimerax: ""           # Path to chimerax executable
-  prepare_ligand4: ""    # Path to prepare_ligand4.py
-  prepare_receptor4: ""  # Path to prepare_receptor4.py
+# Quality Control
+quality:
+  # Input validation
+  validate_structures: true      # Validate input structures
+  check_file_integrity: true     # Check file integrity
+  minimum_file_size: 1024       # Minimum file size (bytes)
+  
+  # Result validation
+  validate_results: true         # Validate docking results
+  minimum_poses: 1              # Minimum required poses
+  maximum_energy: 0.0           # Maximum binding energy (kcal/mol)
+  
+  # Error handling
+  retry_failed_jobs: true        # Retry failed jobs
+  max_retries: 3                # Maximum retry attempts
+  ignore_minor_errors: false    # Ignore minor errors and continue
+
+# Logging Configuration
+logging:
+  # Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"                  # Default logging level
+  console_level: "INFO"          # Console output level
+  file_level: "DEBUG"            # File output level
+  
+  # Log files
+  log_to_file: true             # Enable file logging
+  log_directory: "logs"         # Log file directory
+  log_filename: "orv_mol_{timestamp}.log"  # Log filename pattern
+  max_log_size: 10              # Maximum log file size (MB)
+  backup_count: 5               # Number of backup log files
+  
+  # Log formatting
+  detailed_logging: false       # Include detailed debug information
+  include_timestamps: true      # Include timestamps in logs
+  include_process_id: false     # Include process ID in logs
+
+# Development Settings
+development:
+  debug_mode: false             # Enable debug mode
+  profile_performance: false    # Profile performance
+  save_intermediate_steps: false # Save intermediate processing steps
+  verbose_output: false         # Enable verbose console output
+  
+  # Testing
+  run_validation_tests: false   # Run validation tests
+  generate_test_data: false     # Generate test datasets
+  benchmark_performance: false  # Benchmark system performance
+
+# External Tools Configuration
+external_tools:
+  # AutoDock Vina
+  vina:
+    executable: "vina"           # Vina executable path
+    check_version: true          # Check Vina version compatibility
+    min_version: "1.2.0"        # Minimum required version
+  
+  # Open Babel
+  obabel:
+    executable: "obabel"         # Open Babel executable path
+    timeout: 300                 # Conversion timeout (seconds)
+  
+  # PyMOL
+  pymol:
+    executable: "pymol"          # PyMOL executable path
+    python_api: true             # Prefer Python API over command line
+  
+  # ChimeraX
+  chimerax:
+    executable: "chimerax"       # ChimeraX executable path
+    nogui_mode: true            # Run in no-GUI mode
+  
+  # FFmpeg (for animations)
+  ffmpeg:
+    executable: "ffmpeg"         # FFmpeg executable path
+    video_codec: "libx264"       # Video codec
+    audio_codec: "aac"          # Audio codec (if needed)
+
+# System Resources
+resources:
+  # Memory limits
+  max_memory_usage: 16          # Maximum memory usage (GB)
+  memory_warning_threshold: 12   # Memory warning threshold (GB)
+  
+  # Disk space
+  min_disk_space: 5             # Minimum disk space required (GB)
+  temp_space_limit: 10          # Temporary space limit (GB)
+  
+  # Time limits
+  max_job_time: 7200            # Maximum job time (seconds, 2 hours)
+  warning_time: 3600            # Warning time threshold (seconds, 1 hour)
