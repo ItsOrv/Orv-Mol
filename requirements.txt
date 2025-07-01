@@ -1,0 +1,70 @@
+# Orv-Mol: Professional Molecular Docking System
+# Core Dependencies
+
+# Chemistry and molecular analysis
+rdkit>=2025.3.3
+biopython>=1.85
+
+# Scientific computing
+numpy>=1.21.0
+scipy>=1.7.0
+pandas>=1.3.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+pillow>=8.0.0
+
+# Progress and logging
+tqdm>=4.62.0
+loguru>=0.7.0
+
+# Configuration and file handling
+pyyaml>=6.0
+click>=8.0.0
+
+# Font handling for visualization
+fonttools>=4.0.0
+
+# Data structures and utilities
+packaging>=21.0
+
+# Time zone handling
+pytz>=2021.1
+
+# Path manipulation (Python 3.7 compatibility)
+pathlib2>=2.3.0
+
+# Color cycling for plots
+cycler>=0.10.0
+
+# Contour plotting
+contourpy>=1.0.0
+
+# Kivy solver for matplotlib
+kiwisolver>=1.3.0
+
+# Date utilities
+python-dateutil>=2.8.0
+
+# Additional timezone data
+tzdata>=2021.1
+
+# AutoDock Vina and related tools
+vina>=1.2.3
+meeko>=0.4.0
+
+# Visualization
+pymol-open-source>=2.5.0
+colorama>=0.4.4
+
+# Progress bars and CLI
+colorama>=0.4.4
+
+# Utility libraries
+pathlib2>=2.3.6
+pyyaml>=6.0
+loguru>=0.6.0
+
+# Optional: ChimeraX (requires separate installation)
+# chimera-daily  # Install separately via conda or ChimeraX website 
