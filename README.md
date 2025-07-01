@@ -226,17 +226,6 @@ done
 - Enable professional cleaning for final results
 - Adjust exhaustiveness based on accuracy needs
 
-## Citation
-
-```bibtex
-@software{orv_mol_2024,
-  title={Orv-Mol: Professional Molecular Docking System},
-  author={Orv Development Team},
-  version={1.0.0},
-  year={2024},
-  url={https://github.com/ItsOrv/Orv-Mol}
-}
-```
 
 ## Support
 
