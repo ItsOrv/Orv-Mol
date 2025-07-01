@@ -1,0 +1,59 @@
+# Automated Molecular Docking Pipeline Configuration
+
+# AutoDock Vina parameters
+vina:
+  exhaustiveness: 8        # Search thoroughness (higher = more thorough but slower)
+  num_modes: 9            # Number of binding modes to generate
+  energy_range: 3.0       # Maximum energy difference for modes (kcal/mol)
+  seed: 42               # Random seed for reproducibility
+
+# Visualization settings
+visualization:
+  image_width: 1200       # Image width in pixels
+  image_height: 900       # Image height in pixels
+  animation_frames: 120   # Number of animation frames
+  animation_duration: 8   # Animation duration in seconds
+  ray_trace: true        # Enable ray tracing for high quality
+  antialias: 2           # Anti-aliasing level
+
+# Preprocessing options
+preprocessing:
+  add_hydrogens: true     # Add hydrogens to structures
+  remove_waters: true     # Remove water molecules from protein
+  minimize_ligand: true   # Energy minimize ligand structure
+  ph: 7.4                # pH for protonation state
+
+# Grid box settings (for targeted docking)
+grid:
+  default_size: 22.5      # Default grid box size (Å)
+  padding: 5.0           # Extra padding around protein (Å)
+  min_size: 15.0         # Minimum grid box size (Å)
+  max_size: 50.0         # Maximum grid box size (Å)
+
+# Output settings
+output:
+  save_intermediate: true  # Save intermediate files
+  compress_results: false # Compress output directory
+  cleanup_temp: false    # Clean up temporary files
+
+# Logging configuration
+logging:
+  level: INFO            # Log level (DEBUG, INFO, WARNING, ERROR)
+  save_logs: true        # Save logs to file
+  log_rotation: "10 MB"  # Log file rotation size
+  log_retention: "7 days" # Log file retention period
+
+# Performance settings
+performance:
+  cpu_count: 0           # Number of CPUs to use (0 = all available)
+  memory_limit: null     # Memory limit in GB (null = no limit)
+  timeout: 3600          # Maximum execution time in seconds
+
+# Software paths (leave empty for auto-detection)
+software_paths:
+  vina: ""               # Path to vina executable
+  obabel: ""             # Path to obabel executable
+  pymol: ""              # Path to pymol executable
+  chimerax: ""           # Path to chimerax executable
+  prepare_ligand4: ""    # Path to prepare_ligand4.py
+  prepare_receptor4: ""  # Path to prepare_receptor4.py
